@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const bodyParser = require('body-parser');
 
 const users = require('./routes/api/users');
 const profile = require('./routes/api/profile');
@@ -7,6 +8,10 @@ const posts = require('./routes/api/posts');
 
 // Initializing Express to the application
 const app = express();
+
+// Body parser middleware
+app.use(bodyParser.urlendcoded({ extended: false }));
+app.use(bodyParser.json());
 
 // Database configuration
 const database = require('./config/keys').mongodbURI;
