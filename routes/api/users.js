@@ -1,36 +1,43 @@
-// User Authentication
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const passport = require('passport');
 
+// Load configuration keys
+const keys = require('../../config/keys');
+// Load Input Validation for user registration
+const validateRegisterInput = require('../../validator/register');
+// Setup Express Router
 const router = express.Router();
 
 const User = require('../../models/User');
 
-// @route  GET /api/user/test
-// @desc   Tests route
-// @access Public
-router.get('/test', (req, res) => res.json({ msg: 'users work' }));
-
-// @route  GET /api/users/register
+// @route  POST /api/users/register
 // @desc   Register new user
 // @access Public
 router.post('/register', (req, res) => {
+  // Validate (sanitize) user inputs
+  const { errors, isValid } = validateRegisterInput(req.body);
+
+  if (!isValid) {
+    return res.status(400).json(errors);
+  }
+
+  // Get the register request info
+  const { name, email, password } = req.body;
   // Query the database to search for the email being registered
   // Reason is so that there are no duplicate email registrations
-  User.findOne({ email: req.body.email }).then(userEmail => {
+  User.findOne({ email }).then(userEmail => {
     // If the email exists return status code 400
     if (userEmail) {
-      return res.status(400).json({ email: 'Email already exists' });
+      errors.email = 'Email already exists';
+      return res.status(400).json({ errors });
     }
     // Creating a new resource (user) with Mongoose
-    const newUser = new User({
-      name: req.body.name,
-      email: req.body.email,
-      password: req.body.password
-    });
-
+    const newUser = new User({ name, email, password });
     // Generate salt for users password
-    bcrypt.genSalt(10, (err, salt) => {
+    bcrypt.genSalt(10, (saltError, salt) => {
+      if (saltError) throw saltError;
       // Hash the user's password
       bcrypt.hash(newUser.password, salt, (hashError, hash) => {
         if (hashError) throw hashError;
@@ -42,8 +49,56 @@ router.post('/register', (req, res) => {
           .catch(saveError => console.log(saveError));
       });
     });
+    return 0;
+  });
+  return 0;
+});
 
-    return res.status(400);
+// @route  GET /api/users/login
+// @desc   Login User / Returning JSON Web Token
+// @access Public
+router.post('/login', (req, res) => {
+  const { email, password } = req.body;
+  // Query the database to find the user's email
+  User.findOne({ email }).then(user => {
+    if (!user) {
+      res.status(404).json({ email: 'User not found' });
+    }
+    // Compare the hashed password with the user's
+    // plain text password using bcryptjs
+    bcrypt.compare(password, user.password).then(match => {
+      // If user passwords match
+      if (match) {
+        // Create the payload for the json web token
+        const payload = {
+          id: user.id,
+          name: user.name
+        };
+
+        // Sign the json web token
+        jwt.sign(payload, keys.secreteOrKey, { expiresIn: 3600 }, (signError, token) => {
+          if (signError) throw signError;
+          res.json({
+            success: true,
+            token: `Bearer ${token}`
+          });
+        });
+      } else {
+        res.status(400).json({ password: 'Password incorrect' });
+      }
+    });
+  });
+});
+
+// @route  GET /api/users/current
+// @desc   Return current user
+// @access Private
+router.get('/current', passport.authenticate('jwt', { session: false }), (req, res) => {
+  const { id, name, email } = req.user;
+  res.json({
+    id,
+    name,
+    email
   });
 });
 
