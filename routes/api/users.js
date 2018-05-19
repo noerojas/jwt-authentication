@@ -6,7 +6,9 @@ const passport = require('passport');
 // Load configuration keys
 const keys = require('../../config/keys');
 // Load Input Validation for user registration
-const validateRegisterInput = require('../../validator/register');
+const validateRegisterInput = require('../../validation/register');
+const validateLoginInput = require('../../validation/login');
+
 // Setup Express Router
 const router = express.Router();
 
@@ -58,11 +60,19 @@ router.post('/register', (req, res) => {
 // @desc   Login User / Returning JSON Web Token
 // @access Public
 router.post('/login', (req, res) => {
+  const { errors, isValid } = validateLoginInput(req.body);
+
+  if (!isValid) {
+    return res.status(400).json(errors);
+  }
+
   const { email, password } = req.body;
+
   // Query the database to find the user's email
   User.findOne({ email }).then(user => {
     if (!user) {
-      res.status(404).json({ email: 'User not found' });
+      errors.email = 'User not found';
+      return res.status(404).json(errors);
     }
     // Compare the hashed password with the user's
     // plain text password using bcryptjs
@@ -84,10 +94,14 @@ router.post('/login', (req, res) => {
           });
         });
       } else {
-        res.status(400).json({ password: 'Password incorrect' });
+        errors.password = 'Password incorrect';
+        return res.status(400).json(errors);
       }
+      return 0;
     });
+    return 0;
   });
+  return 0;
 });
 
 // @route  GET /api/users/current
