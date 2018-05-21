@@ -1,6 +1,4 @@
-const passKeys = require('./passKeys');
-
 module.exports = {
-  mongodbURI: passKeys.mongodbURI,
-  secreteOrKey: passKeys.secretOrKey
+  mongodbURI: process.env.MONGO_DB_URI,
+  secreteOrKey: process.env.SECRET_OR_KEY
 };
